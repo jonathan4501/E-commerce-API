@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, Group, Permission
-
+from django.conf import settings
 class Category(models.Model):
     name = models.CharField(max_length=255)
 
@@ -15,6 +15,7 @@ class Product(models.Model):
     stock_quantity = models.IntegerField()
     image_url = models.URLField()
     created_date = models.DateTimeField(auto_now_add=True)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
     def __str__(self):
         return self.name

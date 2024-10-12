@@ -1,104 +1,92 @@
 from django.shortcuts import render
-from rest_framework import status
+from rest_framework import status, filters, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.generics import ListAPIView, RetrieveAPIView, CreateAPIView, UpdateAPIView, DestroyAPIView
+from rest_framework.generics import ListCreateAPIView, RetrieveAPIView, CreateAPIView, UpdateAPIView, DestroyAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from .models import Product, User, Category
+from rest_framework.exceptions import PermissionDenied
 from .serializers import ProductSerializer, UserSerializer, CategorySerializer
-
+import django_filters
+from rest_framework.renderers import BrowsableAPIRenderer
 class ProductPagination(PageNumberPagination):
     page_size = 10
 
-class ProductListAPIView(ListAPIView):
+class ProductRetrieveUpdateDestroyAPIView(RetrieveUpdateDestroyAPIView):
     queryset = Product.objects.all()
+    serializer_class = ProductSerializer
+    lookup_field = 'pk'
+
+    def get_permissions(self):
+        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminUser()]
+
+    def perform_destroy(self, instance):
+        if self.request.user == instance.owner or self.request.user.is_staff:
+            instance.delete()
+        else:
+            raise PermissionDenied("You do not have permission to delete this product.")
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if request.user.is_staff or request.user == instance.owner:
+            return super().update(request, *args, **kwargs)
+        raise PermissionDenied("You do not have permission to update this product.")
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        if request.user.is_staff or request.user == instance.owner:
+            return super().retrieve(request, *args, **kwargs)
+        raise PermissionDenied("You do not have permission to view this product's details.")
+
+class ProductListView(generics.ListAPIView):
+    queryset = Product.objects.all()
+    permission_classes = [IsAuthenticated]
     serializer_class = ProductSerializer
     pagination_class = ProductPagination
-
-    def get_queryset(self):
-        category = self.request.GET.get('category')
-        price_range = self.request.GET.get('price_range')
-        stock_availability = self.request.GET.get('stock_availability')
-
-        queryset = Product.objects.all()
-
-        if category:
-            queryset = queryset.filter(category__name=category)
-
-        if price_range:
-            min_price, max_price = price_range.split(',')
-            queryset = queryset.filter(price__gte=min_price, price__lte=max_price)
-
-        if stock_availability:
-            queryset = queryset.filter(stock_quantity__gt=0)
-
-        return queryset
-
-class ProductRetrieveAPIView(RetrieveAPIView):
-    queryset = Product.objects.all()
-    serializer_class = ProductSerializer
-
-class ProductCreateAPIView(CreateAPIView):
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'description']
+    ordering_fields = ['name', 'price', 'created_at']
+class ProductCreateAPIView(ListCreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = ProductPagination
 
-    def post(self, request):
-        serializer = ProductSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=201)
-        return Response(serializer.errors, status=400)
-
-class ProductUpdateAPIView(UpdateAPIView):
-    queryset = Product.objects.all()
-    serializer_class = ProductSerializer
-    permission_classes = [IsAuthenticated]
-
-class ProductDestroyAPIView(DestroyAPIView):
-    queryset = Product.objects.all()
-    serializer_class = ProductSerializer
-    permission_classes = [IsAuthenticated]
-
-class UserListAPIView(ListAPIView):
+class UserRetrieveUpdateDestroyAPIView(RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+    lookup_field = 'pk'
 
-class UserRetrieveAPIView(RetrieveAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
+    def get_permissions(self):
+        if self.request.method == 'DELETE':
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), IsAdminUser()]
 
+    def perform_destroy(self, instance):
+        if self.request.user == instance or self.request.user.is_staff:
+            instance.delete()
+        else:
+            raise PermissionDenied("You do not have permission to delete this user.")
+
+    def update(self, request, *args, **kwargs):
+        if request.user.is_staff or request.user.id == kwargs.get('pk'):
+            return super().update(request, *args, **kwargs)
+        raise PermissionDenied("You do not have permission to update this user.")
+
+    def retrieve(self, request, *args, **kwargs):
+        if request.user.is_staff or request.user.id == kwargs.get('pk'):
+            return super().retrieve(request, *args, **kwargs)
+        raise PermissionDenied("You do not have permission to view this user's details.")
 class UserCreateAPIView(CreateAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-
-class UserUpdateAPIView(UpdateAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-
-class UserDestroyAPIView(DestroyAPIView):
-    queryset = User.objects.all()
-    serializer_class = UserSerializer
-
-class ProductSearchAPIView(APIView):
-    queryset = User.objects.all()
-    serializer_class = CategorySerializer
     permission_classes = [IsAuthenticated]
-    def get(self, request):
-        name = request.GET.get('name')
-        category = request.GET.get('category')
 
-        queryset = Product.objects.all()
-
-        if name:
-            queryset = queryset.filter(name__icontains=name)
-
-        if category:
-            queryset = queryset.filter(category__name=category)
-
-        serializer = ProductSerializer(queryset, many=True)
-        return Response(serializer.data)
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
 
 class CreateCategoryView(CreateAPIView):
     queryset = Category.objects.all()

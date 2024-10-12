@@ -1,30 +1,18 @@
-from django.urls import include, path
-from rest_framework import routers
+from django.urls import path
 from .views import (
-    ProductListAPIView,
-    ProductRetrieveAPIView,
-    ProductCreateAPIView,
-    ProductUpdateAPIView,
-    ProductDestroyAPIView,
-    UserListAPIView,
-    UserRetrieveAPIView,
+    ProductListView,
     UserCreateAPIView,
-    UserUpdateAPIView,
-    UserDestroyAPIView,
-    ProductSearchAPIView,
+    ProductCreateAPIView,
+    ProductRetrieveUpdateDestroyAPIView,
+    UserRetrieveUpdateDestroyAPIView,
 )
 
 
 urlpatterns = [
-    path('products/', ProductListAPIView.as_view()),
-    path('products/<int:pk>/', ProductRetrieveAPIView.as_view()),
-    path('products/create/', ProductCreateAPIView.as_view()),
-    path('products/<int:pk>/update/', ProductUpdateAPIView.as_view()),
-    path('products/<int:pk>/delete/', ProductDestroyAPIView.as_view()),
-    path('users/', UserListAPIView.as_view()),
-    path('users/<int:pk>/', UserRetrieveAPIView.as_view()),
-    path('users/create/', UserCreateAPIView.as_view()),
-    path('users/<int:pk>/update/', UserUpdateAPIView.as_view()),
-    path('users/<int:pk>/delete/', UserDestroyAPIView.as_view()),
-    path('products/search/', ProductSearchAPIView.as_view()),
+    path('products/', ProductListView.as_view()),
+    path('products/create', ProductCreateAPIView.as_view()),
+    path('users/', UserCreateAPIView.as_view()),
+    path('products/<int:pk>/', ProductRetrieveUpdateDestroyAPIView.as_view(), name='product-detail'),
+    path('users/<int:pk>/', UserRetrieveUpdateDestroyAPIView.as_view(), name='user-detail'),
+    
 ]
