@@ -26,7 +26,7 @@ SECRET_KEY = os.environ.get('django-insecure-zt-8+@66c+gabe*_kq07lcm@qza*_!y-ytm
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.environ.get('DEBUG', False)
 
-ALLOWED_HOSTS = ['.pythonanywhere.com', '.vercel.app']
+ALLOWED_HOSTS = ['.pythonanywhere.com']
 
 # Application definition
 
